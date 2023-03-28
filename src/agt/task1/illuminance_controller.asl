@@ -2,16 +2,31 @@
 
 /* Initial rules */
 
-// Inference rule for infering the belief requires_brightening if the target illuminance is higher than the current illuminance
-requires_brightening :- target_illuminance(Target) & current_illuminance(Current) & Target  > Current.
+// // Inference rule for infering the belief requires_brightening if the target illuminance is higher than the current illuminance
+// requires_brightening :- target_illuminance(Target) & current_illuminance(Current) & Target  > Current.
 
-// Inference rule for infering the belief requires_darkening if the target illuminance is lower than the current illuminance
-requires_darkening :- target_illuminance(Target) & current_illuminance(Current) & Target < Current.
+// // Inference rule for infering the belief requires_darkening if the target illuminance is lower than the current illuminance
+// requires_darkening :- target_illuminance(Target) & current_illuminance(Current) & Target < Current.
+
+// // Inference rule for infering the belief target_illuminance_met if the target illuminance is equal to the current illuminance
+// target_illuminance_met :- target_illuminance(Target) & current_illuminance(Current) & Target == Current.
+
+// Inference rule for infering the belief requires_brightening if the current illuminance differs by +-100 from the target illuminance
+requires_brightening :- target_illuminance(Target) & current_illuminance(Current) & (Target - Current) > 100.
+
+// Inference rule for infering the belief requires_darkening if the current illuminance differs by +-100 from the target illuminance
+requires_darkening :- target_illuminance(Target) & current_illuminance(Current) & (Current - Target) > 100.
+
+// Inference rule for infering the belief target_illuminance_met if the current illuminance is within +-100 of the target illuminance
+target_illuminance_met :- target_illuminance(Target) & current_illuminance(Current) & (Target - Current) >= -100 & (Target - Current) <= 100.
 
 /* Initial beliefs */
 
-// The agent believes that the target illuminance is 400 lux
-target_illuminance(400).
+// // The agent believes that the target illuminance is 400 lux
+// target_illuminance(400).
+
+// The agent believes that the target illuminance is 350 lux
+target_illuminance(350).
 
 /* Initial goals */
 
@@ -30,6 +45,36 @@ target_illuminance(400).
     .wait(4000);
     !manage_illuminance; // creates the goal !manage_illuminance
     !start.
+
+/* 
+ * Plan for reacting to target illuminance met
+ * Triggering event: if the target illuminance is met
+ * Body: print message
+*/
+@target_illuminance_met_plan
++!manage_illuminance : target_illuminance_met <-
+    .print("Target illuminance met").
+
+/* 
+ * Plan for reacting to the addition of the goal !manage_illuminance
+ * Triggering event: addition of goal !manage_illuminance
+ * Context: the agent believes that the blinds are lowered and that the room requires brightening
+ * Body: the agent performs the action of raising the blinds
+*/
+@increase_illuminance_with_blinds_plan
++!manage_illuminance : blinds("lowered") & requires_brightening & weather("sunny") & lights("off") <-
+    .print("Raising the blinds");
+    raiseBlinds. // performs the action of raising the blinds
+
+/*
+* Plan for reacting to the deletion of the belief that the weather is sunny
+* Triggering event: deletion of belief weather("sunny")
+* Context: the agent believes that the blinds are raised and weather is sunny
+*/
+@lower_blinds_beause_weather_cloudy_plan
+-weather(State) : State == "sunny"  & blinds("raised") <- 
+    .print("Lowering the blinds because the weather is cloudy");
+    lowerBlinds. // performs the action of lowering the blinds
 
 /* 
  * Plan for reacting to the addition of the goal !manage_illuminance
@@ -52,17 +97,6 @@ target_illuminance(400).
 +!manage_illuminance:  lights("on") & requires_darkening <-
     .print("Turning off the lights");
     turnOffLights. // performs the action of turning off the lights
-
-/* 
- * Plan for reacting to the addition of the goal !manage_illuminance
- * Triggering event: addition of goal !manage_illuminance
- * Context: the agent believes that the blinds are lowered and that the room requires brightening
- * Body: the agent performs the action of raising the blinds
-*/
-@increase_illuminance_with_blinds_plan
-+!manage_illuminance : blinds("lowered") &  requires_brightening <-
-    .print("Raising the blinds");
-    raiseBlinds. // performs the action of raising the blinds
 
 /* 
  * Plan for reacting to the addition of the goal !manage_illuminance
